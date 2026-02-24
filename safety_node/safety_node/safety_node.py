@@ -25,9 +25,11 @@ class SafetyNode(Node):
         NOTE that the x component of the linear velocity in odom is the speed
         """
         self.speed = 0.
+        self.declare_parameter('ttc_threshold', 0.5)
         self.scan_subscriber = self.create_subscription(LaserScan, '/scan', self.scan_callback, 10)
         self.odom_subscriber = self.create_subscription(Odometry, '/ego_racecar/odom', self.odom_callback, 10)
         self.drive_publisher = self.create_publisher(AckermannDriveStamped, '/drive', 10)
+        self.get_logger().info('Safety Node Initialized')
 
     def odom_callback(self, odom_msg):
         self.speed = odom_msg.twist.twist.linear.x
@@ -47,9 +49,11 @@ class SafetyNode(Node):
         time_to_collision = ranges / denominators
         min_time = np.min(time_to_collision)
 
-        if min_time < 0.5:
-            self.get_logger().info('Emergency brake!')
-            self.drive_publisher.publish(AckermannDriveStamped(drive=AckermannDrive(speed=0.0, steering_angle=0.0)))
+        threshold = self.get_parameter('ttc_threshold').get_parameter_value().double_value
+
+        if min_time < threshold:
+            self.get_logger().info(f'Emergency brake! TTC: {min_time:.3f} < threshold: {threshold:.2f}')
+            self.drive_publisher.publish(AckermannDriveStamped(drive=AckermannDrive(speed=0.0)))
 
  
 
